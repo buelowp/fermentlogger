@@ -25,7 +25,7 @@
 #include "Monitor.h"
 
 Monitor::Monitor(QObject *parent) : QObject(parent) {
-	QTimer::singleShot(1000, this, SLOT(timerUpdate()));
+	QTimer::singleShot(60000, this, SLOT(timerUpdate()));
 
 	pManager = new QNetworkAccessManager(this);
 	connect(pManager, SIGNAL(finished(QNetworkReply*)), this, SLOT(myRequestFinished(QNetworkReply*)));
@@ -77,5 +77,5 @@ void Monitor::myRequestFinished(QNetworkReply* reply)
 			qWarning() << "Failed value on insert was " << value;
 		}
 	}
-	QTimer::singleShot(1000, this, SLOT(timerUpdate()));
+	QTimer::singleShot(60000, this, SLOT(timerUpdate()));
 }
