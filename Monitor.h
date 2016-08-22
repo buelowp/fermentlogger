@@ -27,7 +27,7 @@
 #include <QtCore>
 #include <QtSql>
 #include <QtNetwork>
-#include <qjson/parser.h>
+#include <QDebug>
 
 class Monitor : QObject {
 	Q_OBJECT

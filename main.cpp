@@ -6,6 +6,7 @@
  */
 
 #include <QCoreApplication>
+#include <QDebug>
 #include "Monitor.h"
 
 int main(int argc, char *argv[])
@@ -17,6 +18,8 @@ int main(int argc, char *argv[])
 	monitor.setToken("71407113d77f7b586f2bde57910691ed777a4acf");
 	if (monitor.dbConnect())
 		return app.exec();
+	else
+		qDebug() << "Did not connect";
 
 	return -1;
 }

@@ -49,37 +49,32 @@ void Monitor::timerUpdate()
 	QNetworkRequest request;
 	QString strUrl();
 	request.setUrl(QUrl("https://api.particle.io/v1/devices/"+strDevice+"/fermTemp?access_token="+strToken));
-
 	pManager->get(request);
 }
 
 void Monitor::myRequestFinished(QNetworkReply* reply)
 {
 	if (reply->error() > 0) {
-		qDebug() << "QNetworkReply error " << reply->error();
+		qWarning() << "QNetworkReply error " << reply->error();
 	}
 	else {
 		QByteArray value = reply->readAll();
-		QJson::Parser parser;
-		bool ok;
+		QJsonDocument doc = QJsonDocument::fromJson(value);
+		if (doc.isNull())
+			qWarning() << "Doc is null";
+		QJsonObject object = doc.object();
 
-		QVariantMap result = parser.parse(value, &ok).toMap();
-		if (ok) {
-			double temp = result["result"].toDouble();
-			if (value.size() > 1) {
-				QSqlQuery query("INSERT INTO FermentTemps VALUES (0,NOW(),:device,:value");
-				query.bindValue(":device", strDevice);
-				query.bindValue(":value", value.toDouble());
-				if (!query.exec()) {
-					qDebug() << "QSqlQuery exec() failed with error " << query.lastError().number();
-					qDebug() << "Failed Query was";
-					qDebug() << query.lastQuery();
-					qDebug() << "Failed value on insert was " << value;
-				}
-			}
-		}
-		else {
-			qDebug() << "Unable to parse " << value;
+		double temp = object.value("result").toDouble();
+
+		QSqlQuery query("INSERT INTO FermentTemps (id, date, device, value)"
+				"VALUES (0, NOW(), ?, ?)");
+		query.bindValue(0, strDevice);
+		query.bindValue(1, temp);
+		if (!query.exec()) {
+			qWarning() << "QSqlQuery exec() failed with error " << query.lastError().number();
+			qWarning() << "Failed Query was";
+			qWarning() << query.lastQuery();
+			qWarning() << "Failed value on insert was " << value;
 		}
 	}
 	QTimer::singleShot(1000, this, SLOT(timerUpdate()));
