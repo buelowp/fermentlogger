@@ -65,7 +65,7 @@ void Monitor::myRequestFinished(QNetworkReply* reply)
 		QJsonObject object = doc.object();
 
 		double temp = object.value("result").toDouble();
-
+		temp = filter(temp);
 		QSqlQuery query("INSERT INTO FermentTemps (id, date, device, value)"
 				"VALUES (0, NOW(), ?, ?)");
 		query.bindValue(0, strDevice);
@@ -79,3 +79,21 @@ void Monitor::myRequestFinished(QNetworkReply* reply)
 	}
 	QTimer::singleShot(60000, this, SLOT(timerUpdate()));
 }
+
+double Monitor::filter(double temp)
+{
+	double rval = 0.0;
+
+	if (m_past.size() > 10)
+		m_past.dequeue();
+
+	m_past.enqueue(temp);
+
+	QListIterator<double> i(m_past);
+	while (i.hasNext()) {
+		rval += i.next();
+	}
+	rval = rval / m_past.size();
+	return rval;
+}
+

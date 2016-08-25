@@ -44,10 +44,13 @@ protected slots:
 	void timerUpdate();
 
 private:
+	double filter(double);
+
 	QSqlDatabase db;
 	QNetworkAccessManager *pManager;
 	QString strDevice;
 	QString strToken;
+	QQueue<double> m_past;
 };
 
 #endif /* MONITOR_H_ */
