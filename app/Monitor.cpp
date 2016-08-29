@@ -25,8 +25,6 @@
 #include "Monitor.h"
 
 Monitor::Monitor(QObject *parent) : QObject(parent) {
-	QTimer::singleShot(60000, this, SLOT(timerUpdate()));
-
 	pManager = new QNetworkAccessManager(this);
 	connect(pManager, SIGNAL(finished(QNetworkReply*)), this, SLOT(myRequestFinished(QNetworkReply*)));
 }
@@ -41,6 +39,8 @@ bool Monitor::dbConnect()
 	db.setDatabaseName("Ferment");
 	db.setUserName("fermenter");
 	db.setPassword("Scrub12");
+	if (db.open())
+		timerUpdate();
 	return db.open();
 }
 
@@ -54,6 +54,8 @@ void Monitor::timerUpdate()
 
 void Monitor::myRequestFinished(QNetworkReply* reply)
 {
+	double filt = 0.0;
+
 	if (reply->error() > 0) {
 		qWarning() << "QNetworkReply error " << reply->error();
 	}
@@ -65,24 +67,48 @@ void Monitor::myRequestFinished(QNetworkReply* reply)
 		QJsonObject object = doc.object();
 
 		double temp = object.value("result").toDouble();
-		temp = filter(temp);
-		QSqlQuery query("INSERT INTO FermentTemps (id, date, device, value)"
-				"VALUES (0, NOW(), ?, ?)");
-		query.bindValue(0, strDevice);
-		query.bindValue(1, temp);
-		if (!query.exec()) {
-			qWarning() << "QSqlQuery exec() failed with error " << query.lastError().number();
-			qWarning() << "Failed Query was";
-			qWarning() << query.lastQuery();
-			qWarning() << "Failed value on insert was " << value;
+		if (filter(temp, &filt)) {
+			QSqlQuery query("INSERT INTO FermentTemps (id, date, device, value, filter, name) "
+					"VALUES (0, NOW(), ?, ?, ?, ?)");
+			query.bindValue(0, strDevice);
+			query.bindValue(1, temp);
+			query.bindValue(2, filt);
+			query.bindValue(3, m_name);
+			if (!query.exec()) {
+				qWarning() << "QSqlQuery exec() failed with error " << query.lastError().number();
+				qWarning() << "Failed Query was";
+				qWarning() << query.executedQuery();
+				qWarning() << "Failed value on insert was " << value;
+				qWarning() << "SQl error was" << query.lastError().text();
+			}
 		}
 	}
 	QTimer::singleShot(60000, this, SLOT(timerUpdate()));
 }
 
-double Monitor::filter(double temp)
+/**
+ * Should be a simple linear regression to find a working short term mean
+ * The idea is to ignore anything that varies by more than a few percent
+ * as an invalid entry and not store it in the database. So, we calculate
+ * the percent error for this value from the last one, and if > 5%, just
+ * return false;
+ */
+bool Monitor::filter(double temp, double *rval)
 {
-	double rval = 0.0;
+	double last = (double)m_past.back();
+	double deviation = std::abs(temp - last);
+	double pcnterr = 0.0;
+	double mean = 0.0;
+
+	if (deviation > 0)
+		pcnterr = (deviation / temp) * 100.0;
+
+	if (pcnterr > 5.0) {
+		qWarning() << "Deviation is large:" << pcnterr << "%";
+		qWarning() << "Temp is" << temp;
+		qWarning() << "Last temp is" << last;
+		return false;
+	}
 
 	if (m_past.size() > 10)
 		m_past.dequeue();
@@ -91,9 +117,10 @@ double Monitor::filter(double temp)
 
 	QListIterator<double> i(m_past);
 	while (i.hasNext()) {
-		rval += i.next();
+		mean += i.next();
 	}
-	rval = rval / m_past.size();
-	return rval;
+	mean = mean / m_past.size();
+	*rval = mean;
+	return true;
 }
 

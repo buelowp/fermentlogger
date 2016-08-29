@@ -28,6 +28,7 @@
 #include <QtSql>
 #include <QtNetwork>
 #include <QDebug>
+#include <cmath>
 
 class Monitor : QObject {
 	Q_OBJECT
@@ -38,18 +39,20 @@ public:
 	bool dbConnect();
 	void setDevice(QString d) { strDevice = d; }
 	void setToken(QString t) { strToken = t; }
+	void setName(QString n) { m_name = n; }
 
 protected slots:
 	void myRequestFinished(QNetworkReply*);
 	void timerUpdate();
 
 private:
-	double filter(double);
+	bool filter(double, double*);
 
 	QSqlDatabase db;
 	QNetworkAccessManager *pManager;
 	QString strDevice;
 	QString strToken;
+	QString m_name;
 	QQueue<double> m_past;
 };
 
